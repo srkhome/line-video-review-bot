@@ -155,4 +155,5 @@ async function askGPT(prompt) {
     },
     {
       headers: {
-        Authorization: `Bearer ${apiKe
+       Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+
