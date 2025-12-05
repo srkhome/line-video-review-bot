@@ -1,1 +1,1 @@
-# line-video-review-bot
+Clean version without vercel.json. Deploy on Vercel, add env vars, and set webhook.
