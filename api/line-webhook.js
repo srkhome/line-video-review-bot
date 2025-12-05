@@ -1,12 +1,9 @@
-// api/line-webhook.js
-
 const axios = require("axios");
 const FormData = require("form-data");
 
 const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
 const LINE_CONTENT_URL = "https://api-data.line.me/v2/bot/message";
 
-// Vercel 入口函式
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
@@ -29,15 +26,12 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 一律回 200，讓 LINE 覺得 webhook 正常
     res.status(200).send("OK");
   } catch (err) {
     console.error("Webhook error:", err && (err.response && err.response.data || err));
     res.status(500).send("Error");
   }
 };
-
-// ==================== 文字訊息（影片網址） ====================
 
 async function handleTextMessage(replyToken, text) {
   const isUrl = /^https?:\/\//i.test((text || "").trim());
@@ -69,8 +63,6 @@ async function handleTextMessage(replyToken, text) {
   }
 }
 
-// ==================== 影片訊息（上傳 mp4） ====================
-
 async function handleVideoMessage(replyToken, messageId) {
   try {
     const videoBuffer = await downloadLineContent(messageId);
@@ -101,9 +93,6 @@ async function handleVideoMessage(replyToken, messageId) {
   }
 }
 
-// ==================== 共用小工具 ====================
-
-// 從 LINE 下載影片
 async function downloadLineContent(messageId) {
   const res = await axios.get(LINE_CONTENT_URL + "/" + messageId + "/content", {
     responseType: "arraybuffer",
@@ -114,7 +103,6 @@ async function downloadLineContent(messageId) {
   return Buffer.from(res.data);
 }
 
-// Whisper：語音轉文字
 async function speechToText(audioBuffer) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
@@ -144,7 +132,6 @@ async function speechToText(audioBuffer) {
   return typeof res.data === "string" ? res.data : res.data.text;
 }
 
-// 問 GPT：產生評價＋腳本
 async function askGPT(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
@@ -174,7 +161,6 @@ async function askGPT(prompt) {
   return res.data.choices[0].message.content.trim();
 }
 
-// 回覆 LINE 使用者
 async function replyMessage(replyToken, text) {
   let msg = text || "(沒有內容)";
   const maxLen = 4900;
