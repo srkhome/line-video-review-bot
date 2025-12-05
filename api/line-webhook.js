@@ -6,7 +6,7 @@ const FormData = require("form-data");
 const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
 const LINE_CONTENT_URL = "https://api-data.line.me/v2/bot/message";
 
-// 這就是給 Vercel 用的「出口函式」
+// 給 Vercel 用的出口函式
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
@@ -29,6 +29,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // 一律回 200，讓 LINE 覺得 webhook 正常
     res.status(200).send("OK");
   } catch (err) {
     console.error("Webhook error:", err?.response?.data || err);
@@ -36,7 +37,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// 處理文字訊息：視為影片網址，請 GPT 評分＋重寫腳本
+// 處理文字訊息：當作影片網址，請 GPT 給評價＋重寫腳本
 async function handleTextMessage(replyToken, text) {
   const isUrl = /^https?:\/\//i.test((text || "").trim());
 
@@ -62,7 +63,7 @@ ${text}
   await replyMessage(replyToken, aiResult);
 }
 
-// 處理影片訊息：下載影片 → Whisper 語音轉文字 → GPT 分析＋重寫腳本
+// 處理影片：下載 → Whisper 轉文字 → GPT 評價＋腳本
 async function handleVideoMessage(replyToken, messageId) {
   try {
     const videoBuffer = await downloadLineContent(messageId);
@@ -155,5 +156,35 @@ async function askGPT(prompt) {
     },
     {
       headers: {
-       Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 120000,
+    }
+  );
 
+  return res.data.choices[0].message.content.trim();
+}
+
+// 回覆 LINE 使用者
+async function replyMessage(replyToken, text) {
+  let msg = text || "(沒有內容)";
+  const maxLen = 4900;
+  if (msg.length > maxLen) {
+    msg = msg.slice(0, maxLen - 10) + "...\n(內容過長已截斷)";
+  }
+
+  await axios.post(
+    LINE_REPLY_URL,
+    {
+      replyToken,
+      messages: [{ type: "text", text: msg }],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+}
