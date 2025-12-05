@@ -6,7 +6,7 @@ const FormData = require("form-data");
 const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
 const LINE_CONTENT_URL = "https://api-data.line.me/v2/bot/message";
 
-// 給 Vercel 用的出口函式
+// Vercel 入口函式
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
@@ -37,7 +37,8 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// 處理文字訊息：當作影片網址，請 GPT 給評價＋重寫腳本
+// ==================== 文字訊息（影片網址） ====================
+
 async function handleTextMessage(replyToken, text) {
   const isUrl = /^https?:\/\//i.test((text || "").trim());
 
@@ -59,11 +60,20 @@ ${text}
 4. 幫我重寫一個「60 秒影片腳本」，用「故事行銷＋反差開場」方式，請用繁體中文。
 `;
 
-  const aiResult = await askGPT(prompt);
-  await replyMessage(replyToken, aiResult);
+  try {
+    const aiResult = await askGPT(prompt);
+    await replyMessage(replyToken, aiResult);
+  } catch (err) {
+    console.error("handleTextMessage error:", err?.response?.data || err);
+    await replyMessage(
+      replyToken,
+      "影片評估時發生錯誤，請稍後再試，或先改用貼網址/短一點的影片 🙏"
+    );
+  }
 }
 
-// 處理影片：下載 → Whisper 轉文字 → GPT 評價＋腳本
+// ==================== 影片訊息（上傳 mp4） ====================
+
 async function handleVideoMessage(replyToken, messageId) {
   try {
     const videoBuffer = await downloadLineContent(messageId);
@@ -97,7 +107,9 @@ async function handleVideoMessage(replyToken, messageId) {
   }
 }
 
-// 從 LINE 下載影片檔
+// ==================== 共用小工具 ====================
+
+// 從 LINE 下載影片
 async function downloadLineContent(messageId) {
   const res = await axios.get(`${LINE_CONTENT_URL}/${messageId}/content`, {
     responseType: "arraybuffer",
